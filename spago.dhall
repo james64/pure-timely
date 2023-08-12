@@ -1,5 +1,16 @@
 { name = "my-project"
-, dependencies = [ "console", "effect", "prelude" ]
+, dependencies =
+  [ "arrays"
+  , "console"
+  , "effect"
+  , "exceptions"
+  , "maybe"
+  , "ordered-collections"
+  , "partial"
+  , "prelude"
+  , "quickcheck"
+  , "tuples"
+  ]
 , packages = ./packages.dhall
 , sources = [ "src/**/*.purs", "test/**/*.purs" ]
 }
