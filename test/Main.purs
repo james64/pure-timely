@@ -2,7 +2,8 @@ module Test.Main where
 
 import Prelude
 
-import Data.Foldable (all, foldl)
+import Data.Array (sort)
+import Data.Foldable (all, foldr, foldl, sum)
 import Data.HashMap (HashMap, empty, insertWith, toArrayBy)
 import Data.Ord (abs)
 import Data.Set (fromFoldable)
@@ -11,13 +12,26 @@ import Effect (Effect)
 import Effect.Exception (Error, catchException, message)
 import Effect.Class.Console (log)
 import Node.Process (exit)
-import SalsitaRounding (Tag, TimelyEntry(..), TogglEntry(..), roundToQuarters, timelyMinutes)
+import SalsitaRounding (Tag, TimelyEntry(..), TogglEntry(..), roundToQuarters, togglMinutes, timelyMinutes)
 import Test.QuickCheck (Result, quickCheck, (<?>))
 
 rounds15 :: Int -> Int -> Boolean
 rounds15 from to = to `mod` 15 == 0 && abs (from - to) < 15
 
-type TestFunc = Array TogglEntry -> Array TimelyEntry -> Result
+type TestFunc  = Array TogglEntry -> Array TimelyEntry -> Result
+type NamedTest = { tf::TestFunc, name::String }
+
+namedTest :: TestFunc -> String -> NamedTest
+namedTest tf name = { tf, name }
+
+showA :: forall (a :: Type). Show a => Ord a => Array a -> String
+showA arr = "[" <> (foldl cf "" $ map show $ sort arr) <> "\n]"
+            where
+              cf :: String -> String -> String
+              cf acc e = acc <> "\n  " <> e
+
+showInputOutput :: Array TogglEntry -> Array TimelyEntry -> String
+showInputOutput togs tims = "Input: " <> showA togs <> "\nOutput: " <> showA tims
 
 onlyMinutesAreChanged :: TestFunc
 onlyMinutesAreChanged togs tims =
@@ -26,22 +40,22 @@ onlyMinutesAreChanged togs tims =
     dropMinsTimely (TimelyEntry p r t _) = tuple3 p r t
     togglSet  = fromFoldable $ map dropMinsToggl togs
     timelySet = fromFoldable $ map dropMinsTimely tims
-
   in
-    togglSet == timelySet <?> "Set of entries modified.\nInput: " <> show togs <> "\nOutput: " <> show tims
+    togglSet == timelySet <?> showInputOutput togs tims
 
 nonNegativeMinutes :: TestFunc
 nonNegativeMinutes _ tims = all (\te -> 0 <= timelyMinutes te) tims <?> "Negative minutes found"
 
+totalSumRounds :: TestFunc
+totalSumRounds togs tims = rounds15 togglSum timelySum <?> showInputOutput togs tims
+                           where
+                             togglSum  = sum $ map togglMinutes togs
+                             timelySum = sum $ map timelyMinutes tims
+
 {-
-
-- rounds15 sucetVsetkychPred sucetPo
-
 - for V projekt: rounds15 sucetVsetkychVprojekte secetVprojektePo
 
 - for V zaznamy: rounds15 pred a po
-
-- Vsetky minuty nezaporne
 -}
 
 type TETuple   = Tuple3 String String Tag
@@ -67,26 +81,29 @@ checkFuncAdapter testF togs = testF uniqueIn output
                                 output   = roundToQuarters togs
 
 
-runSingleTest :: TestFunc -> Effect Boolean
-runSingleTest tf = catchException errorHandler do
+runSingleTest :: TestFunc -> String -> Effect Boolean
+runSingleTest tf name = catchException errorHandler do
+                     log $ "\n===== " <> name <> " =====\n"
                      quickCheck $ checkFuncAdapter tf
                      pure true
 
 
-runTests :: Array TestFunc -> Effect Int
-runTests ts = foldl run (pure 0) ts
+runTests :: Array NamedTest -> Effect Int
+runTests ts = foldr run (pure 0) ts
               where
-                run :: Effect Int -> TestFunc -> Effect Int
-                run failCnt tf = do
-                                   succ <- runSingleTest tf
-                                   if succ then failCnt else (map (_+1) failCnt)
+                run :: NamedTest -> Effect Int -> Effect Int
+                run nt failCnt = do
+                  succ <- runSingleTest nt.tf nt.name
+                  if succ then failCnt else (map (_+1) failCnt)
+
 
 main :: Effect Unit
 main = do
   failedCnt <- runTests ourTests
   exit failedCnt
   where
-    ourTests :: Array TestFunc
-    ourTests = [ onlyMinutesAreChanged
-               , nonNegativeMinutes
+    ourTests :: Array NamedTest
+    ourTests = [ namedTest onlyMinutesAreChanged "Only minutes are changed"
+               , namedTest nonNegativeMinutes "No negative minutes after change"
+               , namedTest totalSumRounds "Total sum rounds ok"
                ]

@@ -55,6 +55,9 @@ arbitraryMessage = arbitraryFrom [
 
 data TogglEntry = TogglEntry String String Tag Int
 
+derive instance Eq  TogglEntry
+derive instance Ord TogglEntry
+
 togglProject :: TogglEntry -> String
 togglProject (TogglEntry p _ _ _) = p
 
@@ -79,6 +82,9 @@ instance Arbitrary TogglEntry where
 
 
 data TimelyEntry = TimelyEntry String String Tag Int
+
+derive instance Eq  TimelyEntry
+derive instance Ord TimelyEntry
 
 timelyProject :: TimelyEntry -> String
 timelyProject (TimelyEntry p _ _ _) = p
