@@ -130,7 +130,7 @@ checkFuncAdapter testF togs = case (testF uniqueIn output) of
                                 Failed msg -> false <?> msg <> "\nin\n" <> showInputOutput togs output
                               where
                                 uniqueIn = uniqueEntries togs
-                                output   = roundToQuarters togs
+                                output   = roundToQuarters uniqueIn
 
 
 runSingleTest :: TestFunc -> Effect Result
