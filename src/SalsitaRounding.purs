@@ -107,8 +107,8 @@ instance Show TimelyEntry where
 
 roundTo15 :: Int -> { mins::Int, upper::Boolean }
 roundTo15 i = case (i `mod` 15) of
-                r | r <= 7 -> { mins: i `div` 15,       upper: false }
-                _          -> { mins: (i `div` 15) + 1, upper: true }
+                r | r <= 7 -> { mins: i - r,      upper: false }
+                r          -> { mins: i - r + 15, upper: true }
 
 updateItems :: forall a. Int -> Array { result::{ mins::Int, upper::Boolean }, tag::a } -> Array { mins::Int, tag::a }
 updateItems adj items =
@@ -124,15 +124,15 @@ updateItems adj items =
     if adj >= 0 then
       -- switch lowered up
       let
-        switchDown e = { mins: e.mins - 15, tag: e.tag }
+        switchUp e = { mins: e.mins + 15, tag: e.tag }
       in
-        (map switchDown $ take adj uppered'.no) <> (drop adj uppered'.no) <> uppered'.yes
+        (map switchUp $ take adj uppered'.no) <> (drop adj uppered'.no) <> uppered'.yes
     else
       -- switch uppered down
       let
-        switchUp e = { mins: e.mins + 15, tag: e.tag }
+        switchDown e = { mins: e.mins - 15, tag: e.tag }
       in
-        (map switchUp $ take (-adj) uppered'.yes) <> (drop (-adj) uppered'.yes) <> uppered'.no
+        (map switchDown $ take (-adj) uppered'.yes) <> (drop (-adj) uppered'.yes) <> uppered'.no
 
 
 -- round minutes to nearest multiple of 15
