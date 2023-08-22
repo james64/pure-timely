@@ -2,7 +2,7 @@ module SalsitaRounding where
 
 import Prelude
 
-import Data.Array (drop, filter, groupBy, partition, sortWith, take)
+import Data.Array (drop, filter, groupBy, sortWith, take)
 import Data.Array.NonEmpty as NEA
 import Data.Foldable (foldr, sum)
 import Data.Hashable (class Hashable)
@@ -105,34 +105,27 @@ instance Show TimelyEntry where
 
 ------
 
-roundTo15 :: Int -> { mins::Int, upper::Boolean }
+roundTo15 :: Int -> { mins::Int, diff::Int }
 roundTo15 i = case (i `mod` 15) of
-                r | r <= 7 -> { mins: i - r,      upper: false }
-                r          -> { mins: i - r + 15, upper: true }
+                r | r <= 7 -> { mins: i - r,      diff: (-r)   }
+                r          -> { mins: i - r + 15, diff: (15-r) }
 
-updateItems :: forall a. Int -> Array { result::{ mins::Int, upper::Boolean }, tag::a } -> Array { mins::Int, tag::a }
-updateItems adj items =
+updateItems' :: forall a. Int -> (Int -> Int) -> (Int -> Int) -> Array { result::{ mins::Int, diff::Int }, tag::a } -> Array { mins::Int, tag::a }
+updateItems' cnt sortProj update items =
   let
-    reshape e = { mins: e.result.mins, tag: e.tag }
-
-    uppered  = partition (_.result.upper) items
-    uppered' = {
-      yes: map reshape uppered.yes,
-      no:  map reshape uppered.no
-    }
+    reshape e        = { mins: e.result.mins, tag: e.tag }
+    sortProjRec r    = sortProj r.result.diff
+    mostChangedFirst = map reshape $ sortWith sortProjRec items
+    mapHelper r      = { mins: update r.mins, tag: r.tag }
   in
-    if adj >= 0 then
-      -- switch lowered up
-      let
-        switchUp e = { mins: e.mins + 15, tag: e.tag }
-      in
-        (map switchUp $ take adj uppered'.no) <> (drop adj uppered'.no) <> uppered'.yes
-    else
-      -- switch uppered down
-      let
-        switchDown e = { mins: e.mins - 15, tag: e.tag }
-      in
-        (map switchDown $ take (-adj) uppered'.yes) <> (drop (-adj) uppered'.yes) <> uppered'.no
+    (map mapHelper $ take cnt mostChangedFirst) <> drop cnt mostChangedFirst
+
+
+updateItems :: forall a. Int -> Array { result::{ mins::Int, diff::Int }, tag::a } -> Array { mins::Int, tag::a }
+updateItems adj items = if adj >= 0 then
+                          updateItems' adj (\i -> i) (_+15) items
+                        else
+                          updateItems' (-adj) (\i -> (-i)) (_-15) items
 
 
 -- round minutes to nearest multiple of 15
@@ -143,10 +136,10 @@ spread glob items =
     target :: Int
     target = (roundTo15 glob).mins
 
-    mapFunc :: { mins::Int, tag::a } -> { result::{ mins::Int, upper::Boolean }, tag::a }
+    mapFunc :: { mins::Int, tag::a } -> { result::{ mins::Int, diff::Int }, tag::a }
     mapFunc record = { result: roundTo15 record.mins, tag: record.tag }
 
-    firstRound :: Array { result::{ mins::Int, upper::Boolean }, tag::a }
+    firstRound :: Array { result::{ mins::Int, diff::Int }, tag::a }
     firstRound = map mapFunc items
 
     firstSum = sum $ map (_.result.mins) firstRound
