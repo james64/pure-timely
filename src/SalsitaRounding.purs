@@ -2,7 +2,9 @@ module SalsitaRounding where
 
 import Prelude
 
+import Data.Array (drop, filter, groupBy, partition, sortWith, take)
 import Data.Array.NonEmpty as NEA
+import Data.Foldable (foldr, sum)
 import Data.Hashable (class Hashable)
 import Data.Maybe (fromJust)
 import Partial.Unsafe (unsafePartial)
@@ -101,5 +103,100 @@ timelyMinutes (TimelyEntry _ _ _ m) = m
 instance Show TimelyEntry where
   show (TimelyEntry p m t d) = "TimelyEntry " <> showEntry p m t d
 
+------
+
+roundTo15 :: Int -> { mins::Int, upper::Boolean }
+roundTo15 i = case (i `mod` 15) of
+                r | r <= 7 -> { mins: i `div` 15,       upper: false }
+                _          -> { mins: (i `div` 15) + 1, upper: true }
+
+updateItems :: forall a. Int -> Array { result::{ mins::Int, upper::Boolean }, tag::a } -> Array { mins::Int, tag::a }
+updateItems adj items =
+  let
+    reshape e = { mins: e.result.mins, tag: e.tag }
+
+    uppered  = partition (_.result.upper) items
+    uppered' = {
+      yes: map reshape uppered.yes,
+      no:  map reshape uppered.no
+    }
+  in
+    if adj >= 0 then
+      -- switch lowered up
+      let
+        switchDown e = { mins: e.mins - 15, tag: e.tag }
+      in
+        (map switchDown $ take adj uppered'.no) <> (drop adj uppered'.no) <> uppered'.yes
+    else
+      -- switch uppered down
+      let
+        switchUp e = { mins: e.mins + 15, tag: e.tag }
+      in
+        (map switchUp $ take (-adj) uppered'.yes) <> (drop (-adj) uppered'.yes) <> uppered'.no
+
+
+-- round minutes to nearest multiple of 15
+-- make them sum to global goal by rounding some of the minutes to second nearest multiple of 15
+spread :: forall a. Int -> Array { mins::Int, tag::a } -> Array { mins::Int, tag::a }
+spread glob items =
+  let
+    target :: Int
+    target = (roundTo15 glob).mins
+
+    mapFunc :: { mins::Int, tag::a } -> { result::{ mins::Int, upper::Boolean }, tag::a }
+    mapFunc record = { result: roundTo15 record.mins, tag: record.tag }
+
+    firstRound :: Array { result::{ mins::Int, upper::Boolean }, tag::a }
+    firstRound = map mapFunc items
+
+    firstSum = sum $ map (_.result.mins) firstRound
+
+    adjustment = (target - firstSum) `div` 15
+  in
+    updateItems adjustment firstRound
+
+
 roundToQuarters :: Array TogglEntry -> Array TimelyEntry
-roundToQuarters _ = []
+roundToQuarters togs =
+  let
+    globalSum :: Int
+    globalSum = foldr (+) 0 $ map togglMinutes togs
+
+    h1 :: Array TogglEntry
+    h1 = sortWith togglProject togs
+
+    h2 :: Array (NEA.NonEmptyArray TogglEntry)
+    h2 = groupBy (\a b -> togglProject a == togglProject b) h1
+
+    f2 :: NEA.NonEmptyArray TogglEntry -> Int
+    f2 = f3 >>> sum
+
+    f3 :: NEA.NonEmptyArray TogglEntry -> NEA.NonEmptyArray Int
+    f3 = map togglMinutes
+
+    f1 :: NEA.NonEmptyArray TogglEntry -> { project::String, minutes::Int }
+    f1 a = { project: (togglProject $ NEA.head a), minutes: (f2 a) }
+
+    projectSums :: Array { project::String, minutes::Int }
+    projectSums = map f1 h2
+
+    projSumsRounded :: Array { mins::Int, tag::String }
+    projSumsRounded = spread globalSum $ map (\r -> { mins: r.minutes, tag: r.project }) projectSums
+
+    -- join target sum and toggl entries for given project
+    joinForProj :: { mins::Int, tag::String } -> { mins::Int, togs::Array { mins::Int, tag::TogglEntry} }
+    joinForProj r = let
+                      projOnly = filter (\e -> togglProject e == r.tag) togs
+                    in
+                      {
+                        mins: r.mins,
+                        togs: map (\e -> { mins: togglMinutes e, tag: e}) projOnly
+                      }
+
+    roundedItems :: Array { mins::Int, tag::TogglEntry }
+    roundedItems = do
+                     projMinutes <- projSumsRounded
+                     let wpTogs = joinForProj projMinutes
+                     spread wpTogs.mins wpTogs.togs
+  in
+    map (\r -> TimelyEntry (togglProject r.tag) (togglName r.tag) (togglTag r.tag) r.mins) roundedItems

@@ -2,7 +2,7 @@ module Test.Main where
 
 import Prelude
 
-import Data.Array (head, groupBy, sort, sortWith, toUnfoldable, zip)
+import Data.Array (groupBy, sort, sortWith, toUnfoldable, zip)
 import Data.Array.NonEmpty as NEA
 import Data.Foldable (all, fold, foldr, foldl, sum)
 import Data.HashMap (HashMap, empty, insertWith, toArrayBy)
