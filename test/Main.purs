@@ -5,11 +5,9 @@ import Prelude
 import Data.Array (groupBy, sort, sortWith, toUnfoldable, zip)
 import Data.Array.NonEmpty as NEA
 import Data.Foldable (all, fold, foldr, foldl, sum)
-import Data.HashMap (HashMap, empty, insertWith, toArrayBy)
 import Data.List (List(..), (:))
 import Data.Ord (abs)
 import Data.Tuple (Tuple(..))
-import Data.Tuple.Nested (Tuple3, get1, get2, get3, tuple3)
 import Effect (Effect)
 import Effect.Exception (catchException, message)
 import Effect.Class.Console (log)
@@ -22,7 +20,8 @@ import SalsitaRounding (
   togglMinutes,
   togglProject,
   timelyMinutes,
-  timelyProject
+  timelyProject,
+  uniqueEntries
 )
 import Test.QuickCheck (Result(..), quickCheck, (<?>))
 
@@ -106,19 +105,6 @@ minutesRoundsPerProject togs tims =
                      f@(Failed _) -> f
   in
     check' $ toUnfoldable $ zip togGroups timGroups
-
-
-type TETuple   = Tuple3 String String Tag
-type TEHashMap = HashMap TETuple Int
-
-uniqueEntries :: Array TogglEntry -> Array TogglEntry
-uniqueEntries togs = toArrayBy backToToggl $ foldl add empty togs
-                     where
-                       add :: TEHashMap -> TogglEntry -> TEHashMap
-                       add hm (TogglEntry p n t m) = insertWith (\a b -> a+b) (tuple3 p n t) m hm
-
-                       backToToggl :: TETuple -> Int -> TogglEntry
-                       backToToggl t3 m = TogglEntry (get1 t3) (get2 t3) (get3 t3) m
 
 
 showInputOutput :: Array TogglEntry -> Array TimelyEntry -> String

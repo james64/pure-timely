@@ -4,9 +4,11 @@ import Prelude
 
 import Data.Array (drop, filter, groupBy, sortWith, take)
 import Data.Array.NonEmpty as NEA
-import Data.Foldable (foldr, sum)
+import Data.Foldable (foldr, foldl, sum)
 import Data.Hashable (class Hashable)
+import Data.HashMap (HashMap, empty, insertWith, toArrayBy)
 import Data.Maybe (fromJust)
+import Data.Tuple.Nested (Tuple3, get1, get2, get3, tuple3)
 import Partial.Unsafe (unsafePartial)
 import Test.QuickCheck.Arbitrary (class Arbitrary, arbitrary)
 import Test.QuickCheck.Gen (Gen, chooseInt, elements)
@@ -104,6 +106,18 @@ instance Show TimelyEntry where
   show (TimelyEntry p m t d) = "TimelyEntry " <> showEntry p m t d
 
 ------
+
+type TETuple   = Tuple3 String String Tag
+type TEHashMap = HashMap TETuple Int
+
+uniqueEntries :: Array TogglEntry -> Array TogglEntry
+uniqueEntries togs = toArrayBy backToToggl $ foldl add empty togs
+                     where
+                       add :: TEHashMap -> TogglEntry -> TEHashMap
+                       add hm (TogglEntry p n t m) = insertWith (\a b -> a+b) (tuple3 p n t) m hm
+
+                       backToToggl :: TETuple -> Int -> TogglEntry
+                       backToToggl t3 m = TogglEntry (get1 t3) (get2 t3) (get3 t3) m
 
 roundTo15 :: Int -> { mins::Int, diff::Int }
 roundTo15 i = case (i `mod` 15) of
