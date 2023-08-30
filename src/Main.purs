@@ -5,11 +5,12 @@ import Prelude
 import Control.Monad.Except.Trans (ExceptT(..), except, runExceptT)
 import Control.Monad.Trans.Class (lift)
 import Data.Array ((!!), head)
-import Data.Date (Date)
+import Data.Date (Date, adjust)
 import Data.Either (Either(..), note)
 import Data.HashMap (HashMap, empty)
-import Data.Int (fromString)
+import Data.Int (fromString, toNumber)
 import Data.Maybe (Maybe(..))
+import Data.Time.Duration (Days(..))
 import Effect (Effect)
 import Effect.Console (log)
 import Effect.Now (nowDate)
@@ -25,8 +26,11 @@ getArgument = ExceptT do
                  Nothing -> pure $ Left ("Not a number: " <> show h)
                  Just n  -> pure $ Right n
 
-targetDate :: Int -> Date -> Date
-targetDate diff today = today -- TODO continue here
+targetDate :: Int -> Date -> Either String Date
+targetDate diff today = conv $ adjust (Days $ toNumber diff) today
+  where
+    conv Nothing  = Left "No target date"
+    conv (Just d) = Right d
 
 togglToken :: ExceptT String Effect String
 togglToken = except (Left "togglToken")
@@ -47,7 +51,7 @@ program :: ExceptT String Effect String
 program = do
   dayOffset <- getArgument
   today <- ExceptT $ map Right nowDate
-  let targetDay = targetDate dayOffset today
+  targetDay <- except $ targetDate dayOffset today
   togglTok <- togglToken
   projJson <- fetchProjects togglTok
   let projMap = createProjMap projJson
