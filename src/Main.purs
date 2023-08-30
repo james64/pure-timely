@@ -6,7 +6,7 @@ import Control.Monad.Except.Trans (ExceptT(..), except, runExceptT)
 import Control.Monad.Trans.Class (lift)
 import Data.Array ((!!), head)
 import Data.Date (Date)
-import Data.Either (Either(..))
+import Data.Either (Either(..), note)
 import Data.HashMap (HashMap, empty)
 import Data.Int (fromString)
 import Data.Maybe (Maybe(..))
@@ -25,44 +25,44 @@ getArgument = ExceptT do
                  Just n  -> pure $ Right n
 
 
-getToday :: Effect (Either String Date)
-getToday = pure (Left "getToday")
+getToday :: ExceptT String Effect Date
+getToday = except (Left "getToday")
 
 targetDate :: Int -> Date -> Date
 targetDate diff today = today
 
-togglToken :: Effect (Either String String)
-togglToken = pure (Left "togglToken")
+togglToken :: ExceptT String Effect String
+togglToken = except (Left "togglToken")
 
-fetchProjects :: String -> Effect (Either String String)
-fetchProjects token = pure (Left "fetchProjects")
+fetchProjects :: String -> ExceptT String Effect String
+fetchProjects token = except (Left "fetchProjects")
 
 createProjMap :: String -> HashMap Int String
 createProjMap json = empty
 
-fetchEntries :: String -> Effect (Either String String)
-fetchEntries token = pure (Left "fetchEntries")
+fetchEntries :: String -> ExceptT String Effect String
+fetchEntries token = except (Left "fetchEntries")
 
 toTogglEntries :: String -> Either String (Array TogglEntry)
 toTogglEntries json = Left "toTogglEntries"
 
-program :: ExceptT String Effect Int
-program = getArgument
-
---   today <- getToday
---   targetDay = targetDate dayArg today
---   togglTok <- togglToken
---   projJson <- fetchProjects togglTok
---   projMap = createProjMap projJson
---   togString <- fetchEntries togglTok
---   togEntries <- toTogglEntries
---   togUni = uniqueEntries togEntries
---   timelyEntries = roundToQuarters togUni
---   log timelyEntries
+program :: ExceptT String Effect String
+program = do
+  dayOffset <- getArgument
+  today <- getToday
+  let targetDay = targetDate dayOffset today
+  togglTok <- togglToken
+  projJson <- fetchProjects togglTok
+  let projMap = createProjMap projJson
+  togString <- fetchEntries togglTok
+  togEntries <- except $ toTogglEntries togString
+  let togUni = uniqueEntries togEntries
+  let timelyEntries = roundToQuarters togUni
+  except $ Right (show timelyEntries)
 
 main :: Effect Unit
 main = do
   res <- runExceptT program
   case res of
-    Right _ -> log "ok" >>= (\_ -> pure unit)
-    Left e  -> log e    >>= (\_ -> exit 1)
+    Right r -> log r >>= (\_ -> pure unit)
+    Left e  -> log e >>= (\_ -> exit 1)
