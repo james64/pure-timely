@@ -12,6 +12,7 @@ import Data.Int (fromString)
 import Data.Maybe (Maybe(..))
 import Effect (Effect)
 import Effect.Console (log)
+import Effect.Now (nowDate)
 import Node.Process (argv, exit)
 import SalsitaRounding (TogglEntry(..), roundToQuarters, uniqueEntries)
 
@@ -24,12 +25,8 @@ getArgument = ExceptT do
                  Nothing -> pure $ Left ("Not a number: " <> show h)
                  Just n  -> pure $ Right n
 
-
-getToday :: ExceptT String Effect Date
-getToday = except (Left "getToday")
-
 targetDate :: Int -> Date -> Date
-targetDate diff today = today
+targetDate diff today = today -- TODO continue here
 
 togglToken :: ExceptT String Effect String
 togglToken = except (Left "togglToken")
@@ -49,7 +46,7 @@ toTogglEntries json = Left "toTogglEntries"
 program :: ExceptT String Effect String
 program = do
   dayOffset <- getArgument
-  today <- getToday
+  today <- ExceptT $ map Right nowDate
   let targetDay = targetDate dayOffset today
   togglTok <- togglToken
   projJson <- fetchProjects togglTok
