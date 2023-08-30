@@ -14,6 +14,9 @@ import Data.Time.Duration (Days(..))
 import Effect (Effect)
 import Effect.Console (log)
 import Effect.Now (nowDate)
+import Node.Buffer as NB
+import Node.Encoding (Encoding(UTF8))
+import Node.ChildProcess as CP
 import Node.Process (argv, exit)
 import SalsitaRounding (TogglEntry(..), roundToQuarters, uniqueEntries)
 
@@ -32,8 +35,10 @@ targetDate diff today = conv $ adjust (Days $ toNumber diff) today
     conv Nothing  = Left "No target date"
     conv (Just d) = Right d
 
-togglToken :: ExceptT String Effect String
-togglToken = except (Left "togglToken")
+togglToken :: Effect String
+togglToken = do
+  buff <- CP.execFileSync "pass" ["jad/toggl/token"] CP.defaultExecSyncOptions
+  NB.toString UTF8 buff
 
 fetchProjects :: String -> ExceptT String Effect String
 fetchProjects token = except (Left "fetchProjects")
@@ -52,7 +57,7 @@ program = do
   dayOffset <- getArgument
   today <- ExceptT $ map Right nowDate
   targetDay <- except $ targetDate dayOffset today
-  togglTok <- togglToken
+  togglTok <- ExceptT $ map Right togglToken
   projJson <- fetchProjects togglTok
   let projMap = createProjMap projJson
   togString <- fetchEntries togglTok

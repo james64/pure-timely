@@ -10,6 +10,8 @@
   , "integers"
   , "lists"
   , "maybe"
+  , "node-buffer"
+  , "node-child-process"
   , "node-process"
   , "now"
   , "partial"
