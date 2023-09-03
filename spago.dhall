@@ -1,6 +1,7 @@
 { name = "my-project"
 , dependencies =
-  [ "arrays"
+  [ "aff"
+  , "arrays"
   , "console"
   , "datetime"
   , "effect"

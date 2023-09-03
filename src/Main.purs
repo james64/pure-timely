@@ -2,7 +2,7 @@ module Main where
 
 import Prelude
 
-import Control.Monad.Except.Trans (ExceptT(..), except, runExceptT)
+import Control.Monad.Except.Trans (ExceptT(..), except, mapExceptT, runExceptT)
 import Control.Monad.Trans.Class (lift)
 import Data.Array ((!!), head)
 import Data.Date (Date, adjust)
@@ -12,6 +12,8 @@ import Data.Int (fromString, toNumber)
 import Data.Maybe (Maybe(..))
 import Data.Time.Duration (Days(..))
 import Effect (Effect)
+import Effect.Aff (Aff, launchAff_)
+import Effect.Class (liftEffect)
 import Effect.Console (log)
 import Effect.Now (nowDate)
 import Node.Buffer as NB
@@ -40,24 +42,31 @@ togglToken = do
   buff <- CP.execFileSync "pass" ["jad/toggl/token"] CP.defaultExecSyncOptions
   NB.toString UTF8 buff
 
-fetchProjects :: String -> ExceptT String Effect String
+fetchProjects :: String -> ExceptT String Aff String
 fetchProjects token = except (Left "fetchProjects")
 
 createProjMap :: String -> HashMap Int String
 createProjMap json = empty
 
-fetchEntries :: String -> ExceptT String Effect String
+fetchEntries :: String -> ExceptT String Aff String
 fetchEntries token = except (Left "fetchEntries")
 
 toTogglEntries :: String -> Either String (Array TogglEntry)
 toTogglEntries json = Left "toTogglEntries"
 
-program :: ExceptT String Effect String
+getTargetDay :: ExceptT String Aff Date
+getTargetDay = mapExceptT liftEffect getEffect
+    where
+      getEffect :: ExceptT String Effect Date
+      getEffect = do
+        dayOffset <- getArgument
+        today <- ExceptT $ map Right nowDate
+        except $ targetDate dayOffset today
+
+program :: ExceptT String Aff String
 program = do
-  dayOffset <- getArgument
-  today <- ExceptT $ map Right nowDate
-  targetDay <- except $ targetDate dayOffset today
-  togglTok <- ExceptT $ map Right togglToken
+  targetDay <- getTargetDay
+  togglTok <- ExceptT $ map Right (liftEffect togglToken)
   projJson <- fetchProjects togglTok
   let projMap = createProjMap projJson
   togString <- fetchEntries togglTok
@@ -66,9 +75,14 @@ program = do
   let timelyEntries = roundToQuarters togUni
   except $ Right (show timelyEntries)
 
+
+affLog :: String -> Aff Unit
+affLog = liftEffect <<< log
+
+
 main :: Effect Unit
-main = do
+main = launchAff_ do
   res <- runExceptT program
   case res of
-    Right r -> log r >>= (\_ -> pure unit)
-    Left e  -> log e >>= (\_ -> exit 1)
+    Right r -> affLog r >>= (\_ -> pure unit)
+    Left e  -> affLog e >>= (\_ -> liftEffect $ exit 1)
