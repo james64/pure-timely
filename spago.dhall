@@ -1,6 +1,8 @@
 { name = "my-project"
 , dependencies =
   [ "aff"
+  , "affjax"
+  , "affjax-node"
   , "arrays"
   , "console"
   , "datetime"
@@ -8,6 +10,8 @@
   , "either"
   , "exceptions"
   , "foldable-traversable"
+  , "foreign"
+  , "http-methods"
   , "integers"
   , "lists"
   , "maybe"
@@ -21,6 +25,7 @@
   , "transformers"
   , "tuples"
   , "unordered-collections"
+  , "yoga-json"
   ]
 , packages = ./packages.dhall
 , sources = [ "src/**/*.purs", "test/**/*.purs" ]
