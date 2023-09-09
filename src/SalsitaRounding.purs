@@ -36,6 +36,14 @@ instance Hashable Tag where
   hash Other    = 4
 
 
+tagFromString :: String -> Tag
+tagFromString "devops"   = Devops
+tagFromString "meet"     = Meeting
+tagFromString "research" = Research
+tagFromString "review"   = Review
+tagFromString _          = Other
+
+
 arbitraryFrom :: forall (a :: Type). Array a -> Gen a
 arbitraryFrom as = elements $ unsafePartial fromJust $ NEA.fromArray as
 
@@ -57,6 +65,7 @@ arbitraryMessage = arbitraryFrom [
                      "copying and pasting from stack overflow",
                      "doning nothing" ]
 
+                         -- project name   tag minutes
 data TogglEntry = TogglEntry String String Tag Int
 
 derive instance Eq  TogglEntry
