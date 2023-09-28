@@ -9,7 +9,7 @@ import Affjax.ResponseFormat as RF
 import Affjax.StatusCode (StatusCode(..))
 import Control.Monad.Except.Trans (ExceptT(..), except, mapExceptT, runExceptT)
 import Data.Array ((!!), filter)
-import Data.Array.NonEmpty (head, last)
+import Data.Array.NonEmpty (index)
 import Data.Date (Date, adjust)
 import Data.DateTime (DateTime(..))
 import Data.Either (Either(..))
@@ -132,17 +132,17 @@ descRegex :: Regex
 descRegex = unsafePartial unsafeRe
   where
     reStr :: String
-    reStr = "(\\[[a-zA-Z0-9]*\\]) (.*)"
+    reStr = "\\[([a-zA-Z0-9]*)\\] (.*)"
 
     unsafeRe :: Partial => Regex
     unsafeRe = case (regex reStr noFlags) of
                  Right re -> re
 
 
-unsafeFromMaybe :: Maybe String -> String
-unsafeFromMaybe ms = unsafePartial $ pf ms
+unsafeMaybe :: forall a. Maybe a -> a
+unsafeMaybe ms = unsafePartial $ pf ms
   where
-    pf :: Partial => Maybe String -> String
+    pf :: Partial => Maybe a -> a
     pf (Just s) = s
 
 
@@ -152,8 +152,8 @@ teFromRawJson projMap rj =
     descParsed :: { desc::String, tag::Tag }
     descParsed = case (match descRegex rj.description) of
                    Just (ne) -> {
-                       desc: unsafeFromMaybe $ head ne,
-                       tag: tagFromString $ unsafeFromMaybe $ last ne
+                       desc: unsafeMaybe $ unsafeMaybe $ index ne 2,
+                       tag: tagFromString $ unsafeMaybe $ unsafeMaybe $ index ne 1
                      }
                    Nothing   -> {
                        desc: rj.description,
